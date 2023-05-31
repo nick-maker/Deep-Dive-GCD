@@ -21,37 +21,36 @@ class ViewController: UIViewController {
     
     @IBOutlet weak var labelSix: UILabel!
     
-
     var labelData: [Int: (district: String, location: String)] = [:]
-    let group = DispatchGroup()
+    let serialQueue = DispatchQueue(label: "com.example.labelQueue")
+    
+    let semaphore = DispatchSemaphore(value: 1)
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        dispatchGroup()
+        dispatchSemaphore()
+        
     }
     
-    func dispatchGroup() {
+    func dispatchSemaphore() {
+        let labelArray = [labelOne, labelTwo, labelThree, labelFour, labelFive, labelSix]
         let numbers = [0, 10, 20]
+        var i = 0
+
         for number in numbers {
-            group.enter()
-            TaipeiModel.shared.getTaipeiData(number: number) { [weak self] result in
-                guard let self = self else { return }
-                let district = result.results[0].district
-                let location = result.results[0].location
-                self.labelData[number] = (district, location)
-                self.group.leave()
+            serialQueue.async {
+                self.semaphore.wait()
+                TaipeiModel.shared.getTaipeiData(number: number) { result in
+                    DispatchQueue.main.async {
+                        labelArray[i]?.text = result.results[0].district
+                        labelArray[i+1]?.text = result.results[0].location
+                        self.semaphore.signal()
+                        i += 2
+                    }
+                }
             }
         }
-        
-        group.notify(queue: .main) {
-            self.labelOne.text = self.labelData[0]?.district
-            self.labelTwo.text = self.labelData[0]?.location
-            self.labelThree.text = self.labelData[10]?.district
-            self.labelFour.text = self.labelData[10]?.location
-            self.labelFive.text = self.labelData[20]?.district
-            self.labelSix.text = self.labelData[20]?.location
-        }
     }
-    
 }
 
